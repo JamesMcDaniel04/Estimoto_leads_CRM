@@ -43,6 +43,7 @@ class ParsedEmail:
     sender_email: str = ""
     subject: str = ""
     body: str = ""
+    message_id: str = ""
 
 
 @dataclass
@@ -58,6 +59,10 @@ class Extraction:
     def to_json(self) -> str:
         return json.dumps(asdict(self))
 
+
+# Regex scans are bounded to this many chars — inbound mail is untrusted and
+# unattended (IMAP poller), so pathological bodies must not cause slow scans.
+MAX_SCAN = 20_000
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 # Matches US-style phone numbers with enough digits to be real (avoids dates/zips).
@@ -80,22 +85,24 @@ def parse_eml(raw: bytes) -> ParsedEmail:
         sender_email=addr,
         subject=msg.get("Subject", ""),
         body=body.strip(),
+        message_id=(msg.get("Message-ID") or "").strip(),
     )
 
 
 def parse_pasted(text: str) -> ParsedEmail:
     """Best-effort parse of a pasted email (may include From:/Subject: lines)."""
     parsed = ParsedEmail(body=text.strip())
-    from_match = FROM_LINE_RE.search(text)
+    scan = text[:MAX_SCAN]
+    from_match = FROM_LINE_RE.search(scan)
     if from_match:
         name, addr = email.utils.parseaddr(from_match.group(1).strip())
         parsed.sender_name = name
         parsed.sender_email = addr
     if not parsed.sender_email:
-        emails = EMAIL_RE.findall(text)
-        if emails:
-            parsed.sender_email = emails[0]
-    subj_match = re.search(r"^subject:\s*(.*)$", text, re.IGNORECASE | re.MULTILINE)
+        first_email = EMAIL_RE.search(scan)
+        if first_email:
+            parsed.sender_email = first_email.group(0)
+    subj_match = re.search(r"^subject:\s*(.*)$", scan, re.IGNORECASE | re.MULTILINE)
     if subj_match:
         parsed.subject = subj_match.group(1).strip()
     return parsed
@@ -105,7 +112,7 @@ def fallback_extract(parsed: ParsedEmail) -> Extraction:
     ex = Extraction(method="fallback")
     ex.name = parsed.sender_name
     ex.email = parsed.sender_email
-    phone = PHONE_RE.search(parsed.body)
+    phone = PHONE_RE.search(parsed.body[:MAX_SCAN])
     if phone:
         ex.phone = phone.group(0).strip()
     if not ex.name and parsed.sender_email:

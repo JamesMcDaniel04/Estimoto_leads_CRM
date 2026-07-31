@@ -9,6 +9,11 @@ this tracks *our* inbound customers, not our customers' customers.
   details (name, email, phone, company, intent) are extracted automatically. With an
   `ANTHROPIC_API_KEY` set, Claude does the extraction; without one, a header/regex
   fallback still works. Repeat emails from the same address attach to the existing lead.
+- **IMAP auto-ingestion**: configure `IMAP_ACCOUNTS` (e.g. hello@estimoto.io and
+  estimates@estimoto.io) and the backend polls each inbox for unseen mail and ingests it
+  through the same pipeline — no pasting needed. Messages are only marked read after
+  successful ingestion, and `Message-ID` dedupe makes redelivery harmless. Status shows
+  on the Email Inbox page and at `GET /api/emails/imap-status`.
 - **Pipeline tracking**: kanban board with drag-and-drop across
   New → Contacted → Qualified → Meeting Scheduled → Proposal → Won / Lost, plus a full
   activity timeline per lead (stage changes, ingested emails, meetings, notes).
@@ -16,12 +21,12 @@ this tracks *our* inbound customers, not our customers' customers.
   download an RFC 5545 `.ics` invite to add to your calendar / send to the customer.
   Scheduling a meeting auto-advances early-stage leads to *Meeting Scheduled*.
 
-**Stack**: FastAPI + SQLAlchemy (async, SQLite by default) · Vite + React 19 + TypeScript
-+ Tailwind CSS 4 · single-admin JWT auth.
+**Stack**: FastAPI + SQLAlchemy (async, SQLite by default) · Vite, React 19, TypeScript,
+Tailwind CSS 4 · single-admin JWT auth.
 
 ## Run it
 
-Backend (http://localhost:8000):
+Backend (`http://localhost:8000`):
 
 ```bash
 cd backend
@@ -30,7 +35,7 @@ cp .env.example .env   # set ADMIN_PASSWORD, JWT_SECRET; optionally ANTHROPIC_AP
 .venv/bin/uvicorn app.main:app --reload
 ```
 
-Frontend (http://localhost:5173, proxies `/api` to the backend):
+Frontend (`http://localhost:5173`, proxies `/api` to the backend):
 
 ```bash
 cd frontend

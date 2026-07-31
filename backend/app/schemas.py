@@ -55,6 +55,7 @@ class EmailOut(BaseModel):
     raw_body: str
     extraction_json: str
     extraction_method: str
+    mailbox: str
 
 
 class MeetingCreate(BaseModel):

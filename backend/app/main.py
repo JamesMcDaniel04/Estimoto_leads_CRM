@@ -1,18 +1,38 @@
-from contextlib import asynccontextmanager
+import asyncio
+import logging
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .db import init_db
+from .imap_poller import load_accounts, poll_forever, state as imap_state
 from .models import STAGES
 from .routers import auth, emails, leads, meetings
+
+log = logging.getLogger("main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    poller_task = None
+    try:
+        accounts = load_accounts()
+    except ValueError as e:
+        log.error("%s — IMAP polling disabled", e)
+        imap_state["last_error"] = str(e)
+        accounts = []
+    imap_state["mailboxes"] = [a.email for a in accounts]
+    if accounts:
+        poller_task = asyncio.create_task(poll_forever())
+        log.info("IMAP poller started for: %s", ", ".join(imap_state["mailboxes"]))
     yield
+    if poller_task:
+        poller_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await poller_task
 
 
 app = FastAPI(title="Estimoto Leads CRM", lifespan=lifespan)

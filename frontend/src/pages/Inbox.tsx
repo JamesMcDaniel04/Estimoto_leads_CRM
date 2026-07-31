@@ -1,14 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Upload } from "lucide-react";
+import { Mail, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import type { IngestResponse } from "../lib/types";
+
+interface ImapStatus {
+  mailboxes: string[];
+  last_poll: string | null;
+  last_error: string | null;
+  ingested_total: number;
+}
 
 export default function Inbox() {
   const navigate = useNavigate();
   const [rawText, setRawText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [imap, setImap] = useState<ImapStatus | null>(null);
+
+  useEffect(() => {
+    api.get<ImapStatus>("/api/emails/imap-status").then(setImap).catch(() => {});
+  }, []);
 
   function handleResult(result: IngestResponse) {
     toast.success(
@@ -47,10 +59,43 @@ export default function Inbox() {
   return (
     <div className="max-w-3xl">
       <h1 className="mb-1 text-2xl font-bold tracking-tight">Email Inbox</h1>
-      <p className="mb-6 text-sm text-slate-500">
+      <p className="mb-4 text-sm text-slate-500">
         Paste an inbound customer email (or upload a .eml file). Contact details are extracted
         automatically and a lead is created or updated.
       </p>
+
+      {imap && imap.mailboxes.length > 0 ? (
+        <div
+          className={`mb-6 flex items-start gap-3 rounded-xl border p-4 text-sm ${
+            imap.last_error
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          <Mail size={16} className="mt-0.5 shrink-0" />
+          <div>
+            <div className="font-medium">
+              Auto-ingest active: {imap.mailboxes.join(", ")}
+            </div>
+            <div className="text-xs opacity-80">
+              {imap.last_poll
+                ? `Last checked ${new Date(imap.last_poll).toLocaleString()} · ${
+                    imap.ingested_total
+                  } email${imap.ingested_total === 1 ? "" : "s"} ingested since start`
+                : "First poll pending…"}
+              {imap.last_error && <> · Error: {imap.last_error}</>}
+            </div>
+          </div>
+        </div>
+      ) : (
+        imap && (
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+            No mailboxes connected — set <code className="font-mono">IMAP_ACCOUNTS</code> in{" "}
+            <code className="font-mono">backend/.env</code> to auto-ingest inbound email
+            (see backend/.env.example).
+          </div>
+        )
+      )}
 
       <form onSubmit={ingestText}>
         <textarea

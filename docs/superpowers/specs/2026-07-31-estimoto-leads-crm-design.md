@@ -29,9 +29,18 @@ deploy pipeline with the product. Standalone repo.
 - Activity timeline per lead: auto-logged events (created, email ingested, stage changed,
   meeting scheduled) plus manual notes.
 
+**In (v1.1, added 2026-07-31 on user approval):**
+- IMAP auto-ingestion for hello@estimoto.io and estimates@estimoto.io: a background task
+  in the app polls each configured mailbox (`IMAP_ACCOUNTS` JSON env) for UNSEEN mail on
+  an interval and feeds it through the shared ingestion pipeline (`app/ingest.py`).
+  Reliability: `BODY.PEEK[]` + UID commands, mark `\Seen` only after successful ingestion
+  (at-least-once delivery), `Message-ID` dedupe (effectively exactly-once), per-message
+  and per-account error isolation. Status via `GET /api/emails/imap-status` and the Inbox
+  page. Credentials are app passwords supplied by the operator via env — never stored in
+  the repo.
+
 **Out (deliberately, v1):**
-- IMAP/Gmail auto-polling and calendar OAuth (needs credentials to be provisioned; the
-  ingestion endpoint is designed so an IMAP poller can be added as a thin client later).
+- Calendar OAuth (needs credentials to be provisioned).
 - Multi-user accounts/roles, email sending, reminders, reporting dashboards.
 
 ## Architecture

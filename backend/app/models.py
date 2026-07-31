@@ -70,6 +70,8 @@ class EmailMessage(Base):
     raw_body: Mapped[str] = mapped_column(Text, default="")
     extraction_json: Mapped[str] = mapped_column(Text, default="{}")
     extraction_method: Mapped[str] = mapped_column(String(20), default="fallback")
+    message_id: Mapped[str] = mapped_column(String(500), default="", index=True)
+    mailbox: Mapped[str] = mapped_column(String(320), default="")
 
     lead: Mapped[Lead] = relationship(back_populates="emails")
 
