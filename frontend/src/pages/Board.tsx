@@ -8,9 +8,14 @@ export default function Board() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [dragId, setDragId] = useState<number | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
+  const [dueCount, setDueCount] = useState(0);
 
   useEffect(() => {
     api.get<Lead[]>("/api/leads").then(setLeads).catch(() => toast.error("Failed to load leads"));
+    api
+      .get<unknown[]>("/api/followups")
+      .then((f) => setDueCount(f.length))
+      .catch(() => {});
   }, []);
 
   async function moveTo(stage: Stage) {
@@ -32,6 +37,17 @@ export default function Board() {
   return (
     <div>
       <h1 className="mb-4 text-2xl font-bold tracking-tight">Pipeline</h1>
+      {dueCount > 0 && (
+        <Link
+          to="/followups"
+          className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:border-amber-300"
+        >
+          <span className="font-medium">
+            {dueCount} lead{dueCount === 1 ? "" : "s"} need{dueCount === 1 ? "s" : ""} follow-up
+          </span>
+          <span className="text-xs font-semibold uppercase tracking-wide">View →</span>
+        </Link>
+      )}
       <div className="flex gap-3 overflow-x-auto pb-4">
         {STAGES.map((stage) => {
           const items = leads.filter((l) => l.stage === stage);

@@ -1,12 +1,14 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Calendar, Inbox, Kanban, LogOut, Users } from "lucide-react";
+import { AlertTriangle, Calendar, Inbox, Kanban, LogOut, Settings, Users } from "lucide-react";
 import { clearToken } from "../lib/api";
 
 const navItems = [
   { to: "/", label: "Pipeline", icon: Kanban, end: true },
+  { to: "/followups", label: "Follow-ups", icon: AlertTriangle, end: false },
   { to: "/leads", label: "Leads", icon: Users, end: false },
   { to: "/inbox", label: "Email Inbox", icon: Inbox, end: false },
   { to: "/meetings", label: "Meetings", icon: Calendar, end: false },
+  { to: "/settings", label: "Settings", icon: Settings, end: false },
 ];
 
 export default function Layout() {

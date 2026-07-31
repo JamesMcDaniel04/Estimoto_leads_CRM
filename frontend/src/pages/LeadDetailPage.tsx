@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarPlus, Mail, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Mail, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../lib/api";
 import StageBadge from "../components/StageBadge";
@@ -21,6 +21,8 @@ export default function LeadDetailPage() {
   const [note, setNote] = useState("");
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   const [meeting, setMeeting] = useState({ title: "", starts_at: "", duration: 30, location: "" });
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -70,6 +72,21 @@ export default function LeadDetailPage() {
       toast.success("Meeting scheduled");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to schedule");
+    }
+  }
+
+  async function suggestNext() {
+    setSuggesting(true);
+    try {
+      const resp = await api.post<{ suggestion: string }>(
+        `/api/leads/${lead!.id}/suggest-next`,
+        {}
+      );
+      setSuggestion(resp.suggestion);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suggestion failed");
+    } finally {
+      setSuggesting(false);
     }
   }
 
@@ -277,9 +294,28 @@ export default function LeadDetailPage() {
 
         {/* Right: activity timeline */}
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-            Activity
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+              Activity
+            </h2>
+            <button
+              onClick={suggestNext}
+              disabled={suggesting}
+              title="Ask Claude for the best next action on this lead"
+              className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+            >
+              <Sparkles size={13} />
+              {suggesting ? "Thinking…" : "Suggest next step"}
+            </button>
+          </div>
+          {suggestion && (
+            <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
+              <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-violet-500">
+                <Sparkles size={12} /> AI suggestion
+              </div>
+              {suggestion}
+            </div>
+          )}
           <form onSubmit={addNote} className="mb-4 flex gap-2">
             <input
               value={note}

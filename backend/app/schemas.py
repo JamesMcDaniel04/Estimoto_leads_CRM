@@ -102,6 +102,13 @@ class LeadDetail(LeadOut):
     activities: list[ActivityOut]
 
 
+class FollowUpOut(BaseModel):
+    lead: LeadOut
+    reason: str
+    priority: int
+    days_idle: int
+
+
 class NoteCreate(BaseModel):
     body: str = Field(min_length=1)
 

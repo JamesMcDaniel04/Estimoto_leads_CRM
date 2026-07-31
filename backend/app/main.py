@@ -9,7 +9,7 @@ from . import gmail, imap_poller
 from .config import get_settings
 from .db import init_db
 from .models import STAGES
-from .routers import auth, emails, gmail as gmail_router, leads, meetings
+from .routers import auth, emails, followups, gmail as gmail_router, leads, meetings
 
 log = logging.getLogger("main")
 
@@ -73,6 +73,7 @@ app.include_router(leads.router)
 app.include_router(emails.router)
 app.include_router(meetings.router)
 app.include_router(gmail_router.router)
+app.include_router(followups.router)
 
 
 @app.get("/health")

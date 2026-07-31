@@ -7,6 +7,8 @@ import Leads from "./pages/Leads";
 import LeadDetailPage from "./pages/LeadDetailPage";
 import Inbox from "./pages/Inbox";
 import Meetings from "./pages/Meetings";
+import FollowUps from "./pages/FollowUps";
+import Settings from "./pages/Settings";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -33,6 +35,8 @@ export default function App() {
         <Route path="leads/:id" element={<LeadDetailPage />} />
         <Route path="inbox" element={<Inbox />} />
         <Route path="meetings" element={<Meetings />} />
+        <Route path="followups" element={<FollowUps />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
