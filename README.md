@@ -57,6 +57,24 @@ cd backend && .venv/bin/python -m pytest
 Covers auth, email parsing/extraction (fallback path), lead dedupe on ingest, stage
 transitions + activity logging, meeting validation, and ICS output.
 
+## Deploy
+
+The two halves deploy to different places because the backend is a long-running process
+(background mail poller + SQLite file) that cannot run on serverless:
+
+**Backend → Fly.io** (always-on machine + volume). One-time setup is documented at the
+top of [backend/fly.toml](backend/fly.toml): `fly launch`, create the `crm_data` volume,
+set secrets (`JWT_SECRET`, `ADMIN_*`, `GOOGLE_OAUTH_*`, `CORS_ORIGINS`, `FRONTEND_URL`),
+then `fly deploy`. After deploying, add the production callback URL
+(`https://<app>.fly.dev/api/gmail/callback`) to the Google OAuth client's authorized
+redirect URIs alongside the localhost one.
+
+**Frontend → Vercel** (static). The root [vercel.json](vercel.json) builds `frontend/`
+from this monorepo, so importing the repo into Vercel works as-is. Set one environment
+variable in the Vercel project: `VITE_API_URL=https://<app>.fly.dev` (it's baked in at
+build time; leave it unset locally and the dev proxy is used). The backend's
+`CORS_ORIGINS` and `FRONTEND_URL` secrets must name your Vercel domain.
+
 ## Design notes
 
 See [docs/superpowers/specs/2026-07-31-estimoto-leads-crm-design.md](docs/superpowers/specs/2026-07-31-estimoto-leads-crm-design.md)

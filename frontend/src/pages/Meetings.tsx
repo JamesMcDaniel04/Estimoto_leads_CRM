@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { api, getToken } from "../lib/api";
+import { api, API_BASE, getToken } from "../lib/api";
 import type { Lead, Meeting } from "../lib/types";
 
 export default function Meetings() {
@@ -30,7 +30,7 @@ export default function Meetings() {
   }
 
   async function downloadIcs(meeting: Meeting) {
-    const resp = await fetch(`/api/meetings/${meeting.id}/ics`, {
+    const resp = await fetch(`${API_BASE}/api/meetings/${meeting.id}/ics`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     });
     const blob = await resp.blob();

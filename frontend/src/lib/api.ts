@@ -1,5 +1,9 @@
 const TOKEN_KEY = "estimoto_crm_token";
 
+// Deployed builds set VITE_API_URL to the hosted backend (e.g. a Fly app);
+// unset, paths stay relative and the Vite dev proxy handles them.
+export const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -29,7 +33,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (options.body && !(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
-  const resp = await fetch(path, { ...options, headers });
+  const resp = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (resp.status === 401) {
     clearToken();
     if (!path.includes("/auth/login")) window.location.href = "/login";
