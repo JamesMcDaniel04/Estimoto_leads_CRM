@@ -1,0 +1,50 @@
+from app.extraction import fallback_extract, parse_eml, parse_pasted
+
+SAMPLE_EML = b"""\
+From: Jane Doe <jane@doebodyshop.com>
+To: hello@estimoto.io
+Subject: Interested in Estimoto for our shop
+Content-Type: text/plain
+
+Hi, we run a 3-bay collision shop and want a demo.
+Call me at (555) 123-4567.
+"""
+
+
+def test_parse_eml_headers_and_body():
+    parsed = parse_eml(SAMPLE_EML)
+    assert parsed.sender_name == "Jane Doe"
+    assert parsed.sender_email == "jane@doebodyshop.com"
+    assert parsed.subject == "Interested in Estimoto for our shop"
+    assert "3-bay collision shop" in parsed.body
+
+
+def test_parse_pasted_with_headers():
+    parsed = parse_pasted(
+        "From: Bob Smith <bob@smithauto.com>\nSubject: Demo request\n\nWe want pricing."
+    )
+    assert parsed.sender_email == "bob@smithauto.com"
+    assert parsed.sender_name == "Bob Smith"
+    assert parsed.subject == "Demo request"
+
+
+def test_parse_pasted_bare_text_finds_email():
+    parsed = parse_pasted("Please reach out to mike@garage99.com about your product")
+    assert parsed.sender_email == "mike@garage99.com"
+
+
+def test_fallback_extract_full():
+    ex = fallback_extract(parse_eml(SAMPLE_EML))
+    assert ex.method == "fallback"
+    assert ex.name == "Jane Doe"
+    assert ex.email == "jane@doebodyshop.com"
+    assert ex.phone == "(555) 123-4567"
+    assert ex.company == "Doebodyshop"
+    assert ex.intent == "Interested in Estimoto for our shop"
+
+
+def test_fallback_derives_name_from_email_and_skips_generic_domains():
+    parsed = parse_pasted("contact john.smith@gmail.com for details")
+    ex = fallback_extract(parsed)
+    assert ex.name == "John Smith"
+    assert ex.company == ""  # gmail is not a company
