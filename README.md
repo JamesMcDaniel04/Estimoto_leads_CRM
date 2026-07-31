@@ -9,11 +9,14 @@ this tracks *our* inbound customers, not our customers' customers.
   details (name, email, phone, company, intent) are extracted automatically. With an
   `ANTHROPIC_API_KEY` set, Claude does the extraction; without one, a header/regex
   fallback still works. Repeat emails from the same address attach to the existing lead.
-- **IMAP auto-ingestion**: configure `IMAP_ACCOUNTS` (e.g. hello@estimoto.io and
-  estimates@estimoto.io) and the backend polls each inbox for unseen mail and ingests it
-  through the same pipeline — no pasting needed. Messages are only marked read after
-  successful ingestion, and `Message-ID` dedupe makes redelivery harmless. Status shows
-  on the Email Inbox page and at `GET /api/emails/imap-status`.
+- **Gmail auto-ingestion (native OAuth)**: set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET` (the
+  Estimoto Google OAuth client works — add this app's redirect URI to it and enable the
+  Gmail API), then click **Connect Gmail** on the Inbox page and approve as
+  hello@estimoto.io. The backend polls the Gmail API for unread inbox mail and ingests it
+  through the same pipeline — no pasting, no app passwords. Messages are only marked read
+  after successful ingestion, and `Message-ID` dedupe makes redelivery harmless. Status
+  shows on the Email Inbox page and at `GET /api/gmail/status`; disconnect any time from
+  the same page. (An app-password IMAP fallback also exists via `IMAP_ACCOUNTS`.)
 - **Pipeline tracking**: kanban board with drag-and-drop across
   New → Contacted → Qualified → Meeting Scheduled → Proposal → Won / Lost, plus a full
   activity timeline per lead (stage changes, ingested emails, meetings, notes).

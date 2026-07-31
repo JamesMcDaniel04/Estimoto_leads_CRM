@@ -29,6 +29,19 @@ deploy pipeline with the product. Standalone repo.
 - Activity timeline per lead: auto-logged events (created, email ingested, stage changed,
   meeting scheduled) plus manual notes.
 
+**In (v1.2, added 2026-07-31 on user request):**
+- Native Gmail integration for hello@estimoto.io, replacing app passwords as the primary
+  path: OAuth connect flow (`/api/gmail/auth-url` → Google consent → `/api/gmail/callback`,
+  protected by a short-lived HMAC-signed state nonce since the callback carries no JWT),
+  refresh token stored in `gmail_accounts`, and the shared poll loop lists unread INBOX
+  messages via the Gmail REST API (`gmail.modify` scope — read + mark-as-read only),
+  ingests them through `app/ingest.py`, and removes the UNREAD label only after success.
+  Reuses the Estimoto product's Google OAuth client (same `GOOGLE_OAUTH_*` env names);
+  the operator adds this app's redirect URI to that client and enables the Gmail API.
+  Disconnect revokes the token (best-effort) and deletes the row. The refresh token is
+  stored unencrypted in the local SQLite file — acceptable for a single-operator internal
+  tool; revisit if the tool is deployed multi-user.
+
 **In (v1.1, added 2026-07-31 on user approval):**
 - IMAP auto-ingestion for hello@estimoto.io and estimates@estimoto.io: a background task
   in the app polls each configured mailbox (`IMAP_ACCOUNTS` JSON env) for UNSEEN mail on

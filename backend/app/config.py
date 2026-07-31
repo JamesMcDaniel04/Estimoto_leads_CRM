@@ -18,7 +18,15 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173"
 
-    # IMAP auto-ingestion. IMAP_ACCOUNTS is a JSON list, e.g.
+    # Native Gmail integration (preferred): reuses the Estimoto Google OAuth
+    # client — same env names as the product backend. The redirect URL must
+    # be registered on that OAuth client in Google Cloud console.
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_redirect_url: str = "http://localhost:8000/api/gmail/callback"
+    frontend_url: str = "http://localhost:5173"
+
+    # IMAP auto-ingestion (fallback, app-password based). IMAP_ACCOUNTS is a JSON list, e.g.
     # [{"email": "hello@estimoto.io", "password": "app-password"},
     #  {"email": "estimates@estimoto.io", "password": "app-password"}]
     # Host/port default to imap_host/imap_port unless set per account.

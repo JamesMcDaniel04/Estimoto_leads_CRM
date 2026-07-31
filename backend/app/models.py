@@ -91,6 +91,18 @@ class Meeting(Base):
     lead: Mapped[Lead] = relationship(back_populates="meetings")
 
 
+class GmailAccount(Base):
+    """A Gmail mailbox connected via OAuth; the refresh token lets the
+    poller mint access tokens indefinitely until the user disconnects."""
+
+    __tablename__ = "gmail_accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True)
+    refresh_token: Mapped[str] = mapped_column(Text)
+    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Activity(Base):
     __tablename__ = "activities"
 
