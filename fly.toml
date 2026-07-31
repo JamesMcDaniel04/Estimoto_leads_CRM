@@ -1,0 +1,32 @@
+# Fly.io config — single app serving both the API and the built frontend.
+#
+# Secrets required (fly secrets set ...): JWT_SECRET, ADMIN_EMAIL,
+# ADMIN_PASSWORD, ANTHROPIC_API_KEY, GOOGLE_OAUTH_CLIENT_ID,
+# GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL, FRONTEND_URL.
+#
+# SQLite lives on the crm_data volume, so this app stays at exactly one
+# machine (no horizontal scaling without moving to Postgres).
+
+app = "estimoto-leads-crm"
+primary_region = "iad"
+
+[build]
+
+[env]
+  DATABASE_URL = "sqlite+aiosqlite:////data/crm.db"
+
+[mounts]
+  source = "crm_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # The mail poller must keep running, so never stop the machine.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
