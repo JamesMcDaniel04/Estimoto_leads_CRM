@@ -3,6 +3,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from ..ai import ai_enabled, suggest_next_action
 from ..auth import require_user
@@ -18,7 +19,9 @@ router = APIRouter(prefix="/api", tags=["followups"], dependencies=[Depends(requ
 
 @router.get("/followups", response_model=list[FollowUpOut])
 async def list_followups(db: AsyncSession = Depends(get_db)):
-    leads = (await db.scalars(select(Lead))).all()
+    # The rules only read activities and meetings; emails (with their raw
+    # bodies) would be eager-loaded for every lead without the noload.
+    leads = (await db.scalars(select(Lead).options(noload(Lead.emails)))).all()
     return [
         FollowUpOut(lead=f.lead, reason=f.reason, priority=f.priority, days_idle=f.days_idle)
         for f in compute_followups(list(leads))

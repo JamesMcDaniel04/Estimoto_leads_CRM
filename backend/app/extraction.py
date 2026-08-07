@@ -8,10 +8,13 @@ never block ingestion — any Claude failure degrades to the fallback.
 import email
 import email.policy
 import json
+import logging
 import re
 from dataclasses import asdict, dataclass, field
 
 from .config import get_settings
+
+log = logging.getLogger("extraction")
 
 EXTRACTION_TOOL = {
     "name": "record_lead",
@@ -165,5 +168,8 @@ def extract(parsed: ParsedEmail) -> Extraction:
         try:
             return claude_extract(parsed)
         except Exception:
-            pass
+            # Degrading is intended (ingestion must never block on Claude),
+            # but silently degrading is not — the operator pays for AI
+            # extraction and should see when it stops working.
+            log.warning("Claude extraction failed — using fallback", exc_info=True)
     return fallback_extract(parsed)

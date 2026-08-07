@@ -1,4 +1,6 @@
 import hmac
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -8,6 +10,43 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .config import get_settings
 
 bearer = HTTPBearer(auto_error=False)
+
+
+class LoginRateLimiter:
+    """Sliding-window lockout on failed logins, keyed by client IP.
+
+    In-memory on purpose: the app runs as a single process (SQLite, one Fly
+    machine), and the admin password is the only credential in the system —
+    this is brute-force protection, not distributed rate limiting.
+    """
+
+    def __init__(self, max_failures: int = 5, window_seconds: int = 300):
+        self.max_failures = max_failures
+        self.window_seconds = window_seconds
+        self._failures: dict[str, deque[float]] = defaultdict(deque)
+
+    def _prune(self, ip: str) -> None:
+        cutoff = time.monotonic() - self.window_seconds
+        failures = self._failures[ip]
+        while failures and failures[0] < cutoff:
+            failures.popleft()
+
+    def locked(self, ip: str) -> bool:
+        self._prune(ip)
+        return len(self._failures[ip]) >= self.max_failures
+
+    def record_failure(self, ip: str) -> None:
+        self._prune(ip)
+        self._failures[ip].append(time.monotonic())
+
+    def record_success(self, ip: str) -> None:
+        self._failures.pop(ip, None)
+
+    def reset(self) -> None:
+        self._failures.clear()
+
+
+login_limiter = LoginRateLimiter()
 
 
 def create_token(email: str) -> str:

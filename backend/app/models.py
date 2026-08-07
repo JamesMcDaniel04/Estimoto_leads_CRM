@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -30,6 +30,17 @@ def utcnow() -> datetime:
 
 class Lead(Base):
     __tablename__ = "leads"
+    # Email is the ingestion dedupe key, so duplicates must be impossible at
+    # the DB level — but manual leads may have no email yet, hence partial.
+    __table_args__ = (
+        Index(
+            "uq_leads_email_nonblank",
+            "email",
+            unique=True,
+            sqlite_where=text("email != ''"),
+            postgresql_where=text("email != ''"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), default="")

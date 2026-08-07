@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import noload
 
 from ..auth import require_user
 from ..db import get_db
@@ -26,8 +28,21 @@ async def get_lead_or_404(lead_id: int, db: AsyncSession) -> Lead:
 
 
 @router.get("", response_model=list[LeadOut])
-async def list_leads(stage: str | None = None, db: AsyncSession = Depends(get_db)):
-    query = select(Lead).order_by(Lead.updated_at.desc())
+async def list_leads(
+    stage: str | None = None,
+    limit: int = Query(500, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    # LeadOut carries no children — noload skips the selectin queries that
+    # would otherwise pull every email body for every lead in the list.
+    query = (
+        select(Lead)
+        .options(noload(Lead.emails), noload(Lead.meetings), noload(Lead.activities))
+        .order_by(Lead.updated_at.desc(), Lead.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     if stage is not None:
         query = query.where(Lead.stage == validate_stage(stage))
     return (await db.scalars(query)).all()
@@ -39,7 +54,13 @@ async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
     lead = Lead(**body.model_dump())
     lead.activities.append(Activity(type="created", body="Lead created manually"))
     db.add(lead)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409, detail=f"A lead with email {body.email} already exists"
+        )
     return lead
 
 
@@ -62,7 +83,13 @@ async def update_lead(lead_id: int, body: LeadUpdate, db: AsyncSession = Depends
         )
     for key, value in changes.items():
         setattr(lead, key, value)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409, detail=f"A lead with email {changes.get('email')} already exists"
+        )
     return lead
 
 

@@ -48,3 +48,23 @@ def test_fallback_derives_name_from_email_and_skips_generic_domains():
     ex = fallback_extract(parsed)
     assert ex.name == "John Smith"
     assert ex.company == ""  # gmail is not a company
+
+
+def test_extract_logs_when_claude_fails(monkeypatch, caplog):
+    import logging
+
+    from app import extraction
+    from app.config import Settings
+
+    monkeypatch.setattr(extraction, "get_settings", lambda: Settings(anthropic_api_key="key"))
+
+    def boom(parsed):
+        raise RuntimeError("api down")
+
+    monkeypatch.setattr(extraction, "claude_extract", boom)
+
+    with caplog.at_level(logging.WARNING):
+        ex = extraction.extract(parse_pasted("From: Jane <jane@shop.com>\n\nhello"))
+
+    assert ex.method == "fallback"
+    assert any("extraction" in r.message.lower() for r in caplog.records)

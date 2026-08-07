@@ -163,3 +163,9 @@ async def test_disconnect(auth_client, monkeypatch):
     assert resp.status_code == 204
     status = (await auth_client.get("/api/gmail/status")).json()
     assert status["connected"] == []
+
+
+def test_oauth_state_is_single_use():
+    value = make_oauth_state()
+    assert verify_oauth_state(value) is True
+    assert verify_oauth_state(value) is False  # replay must fail

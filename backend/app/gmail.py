@@ -10,6 +10,8 @@ at-least-once + Message-ID-dedupe semantics as the IMAP path.
 
 import base64
 import logging
+import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -50,22 +52,40 @@ def oauth_configured() -> bool:
 # redirect, so the unauthenticated callback can't be forged. ---------------
 
 
+# jti -> expiry epoch; consumed states are refused until they expire anyway.
+_used_state_jtis: dict[str, float] = {}
+
+
 def make_oauth_state() -> str:
     return jwt.encode(
-        {"purpose": "gmail_oauth", "exp": datetime.now(timezone.utc) + timedelta(minutes=10)},
+        {
+            "purpose": "gmail_oauth",
+            "jti": uuid.uuid4().hex,
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
+        },
         get_settings().jwt_secret,
         algorithm="HS256",
     )
 
 
 def verify_oauth_state(value: str | None) -> bool:
+    """Valid exactly once — a replayed state within its lifetime is refused."""
     if not value:
         return False
     try:
         payload = jwt.decode(value, get_settings().jwt_secret, algorithms=["HS256"])
     except jwt.PyJWTError:
         return False
-    return payload.get("purpose") == "gmail_oauth"
+    if payload.get("purpose") != "gmail_oauth":
+        return False
+    jti = payload.get("jti")
+    if not jti or jti in _used_state_jtis:
+        return False
+    now = time.time()
+    for stale in [k for k, exp in _used_state_jtis.items() if exp < now]:
+        del _used_state_jtis[stale]
+    _used_state_jtis[jti] = float(payload["exp"])
+    return True
 
 
 def build_auth_url() -> str:

@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -89,16 +89,25 @@ def stages():
     return {"stages": STAGES}
 
 
+def mount_spa(app: FastAPI, static_dir: Path) -> None:
+    """Serve the built frontend, with client routes falling back to
+    index.html. Unknown /api/* paths must 404 as JSON — returning the SPA
+    shell with a 200 turns every broken API call into a silent success."""
+    app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa(full_path: str):
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        candidate = (static_dir / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(static_dir.resolve()):
+            return FileResponse(candidate)
+        return FileResponse(static_dir / "index.html")
+
+
 # In the production image the built frontend is copied to app/static and the
 # whole platform is served from this one origin. Locally the directory does
 # not exist and the Vite dev server handles the UI.
 _static_dir = Path(__file__).parent / "static"
 if _static_dir.is_dir():
-    app.mount("/assets", StaticFiles(directory=_static_dir / "assets"), name="assets")
-
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def spa(full_path: str):
-        candidate = (_static_dir / full_path).resolve()
-        if full_path and candidate.is_file() and candidate.is_relative_to(_static_dir.resolve()):
-            return FileResponse(candidate)
-        return FileResponse(_static_dir / "index.html")
+    mount_spa(app, _static_dir)
