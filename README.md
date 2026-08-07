@@ -57,6 +57,44 @@ cd backend && .venv/bin/python -m pytest
 Covers auth, email parsing/extraction (fallback path), lead dedupe on ingest, stage
 transitions + activity logging, meeting validation, and ICS output.
 
+## Database: migrations & backups
+
+Schema is managed by Alembic ([backend/migrations/](backend/migrations/)). On startup the
+app runs `alembic upgrade head` automatically (a pre-Alembic database created by the old
+`create_all` startup is detected and stamped with the baseline revision first), so
+deploys apply pending migrations with no manual step. Tests use in-memory SQLite and
+keep `create_all`.
+
+To change the schema: edit [backend/app/models.py](backend/app/models.py), then
+
+```bash
+cd backend && .venv/bin/alembic revision --autogenerate -m "describe change"
+```
+
+and review the generated file in `migrations/versions/` before committing.
+
+**Backup (production SQLite on the Fly volume):**
+
+```bash
+fly ssh console
+# inside the machine — snapshot safely while the app is running:
+python3 -c "import sqlite3; sqlite3.connect('/data/crm.db').execute(\"VACUUM INTO '/data/backup.db'\")"
+exit
+fly sftp get /data/backup.db ./crm-backup-$(date +%F).db
+fly ssh console -C "rm /data/backup.db"
+```
+
+**Restore:** upload the backup and swap it in, then restart:
+
+```bash
+fly sftp shell   # put ./crm-backup-<date>.db /data/crm.db
+fly apps restart estimoto-leads-crm
+```
+
+Fly also takes daily block-level volume snapshots (`fly volumes snapshots list`), which
+work as a coarse fallback. There is no automated offsite backup yet — run the manual
+backup before risky changes.
+
 ## Deploy
 
 The two halves deploy to different places because the backend is a long-running process
@@ -80,5 +118,5 @@ build time; leave it unset locally and the dev proxy is used). The backend's
 See [docs/superpowers/specs/2026-07-31-estimoto-leads-crm-design.md](docs/superpowers/specs/2026-07-31-estimoto-leads-crm-design.md)
 for architecture, data model, and the v1 scope decisions (notably: no IMAP polling or
 calendar OAuth yet — the ingest endpoint is designed so an IMAP poller can be added as a
-thin client later; tables are `create_all`-managed until the first breaking schema change
-warrants Alembic).
+thin client later). Tables are now Alembic-managed — see "Database: migrations &
+backups" above.

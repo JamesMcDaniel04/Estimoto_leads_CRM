@@ -54,3 +54,19 @@ def test_migrations_are_idempotent(tmp_path):
     run_migrations(url)
 
     assert EXPECTED_TABLES <= _table_names(f"sqlite:///{db_file}")
+
+
+async def test_init_db_migrates_file_backed_database(tmp_path, monkeypatch):
+    """Startup runs migrations (not create_all) for real databases."""
+    from app import db as db_module
+    from app.config import Settings
+
+    db_file = tmp_path / "startup.db"
+    url = f"sqlite+aiosqlite:///{db_file}"
+    monkeypatch.setattr(db_module, "get_settings", lambda: Settings(database_url=url))
+
+    await db_module.init_db()
+
+    tables = _table_names(f"sqlite:///{db_file}")
+    assert EXPECTED_TABLES <= tables
+    assert "alembic_version" in tables
