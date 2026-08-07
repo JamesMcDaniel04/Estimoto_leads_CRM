@@ -14,6 +14,8 @@ primary_region = "iad"
 
 [env]
   DATABASE_URL = "sqlite+aiosqlite:////data/crm.db"
+  # Refuses to boot if JWT_SECRET / ADMIN_PASSWORD are unset or placeholders.
+  APP_ENV = "production"
 
 [mounts]
   source = "crm_data"
