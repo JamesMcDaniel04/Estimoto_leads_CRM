@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Plug, Sparkles, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "../lib/api";
+import { API_BASE, api } from "../lib/api";
+
+// In production the frontend and API share one origin; in dev the backend
+// runs separately on :8000.
+const gmailCallbackUrl = `${
+  API_BASE || (import.meta.env.DEV ? "http://localhost:8000" : window.location.origin)
+}/api/gmail/callback`;
 
 interface Integrations {
   ai_extraction: boolean;
@@ -25,9 +31,18 @@ function StatusDot({ on }: { on: boolean }) {
 
 export default function Settings() {
   const [data, setData] = useState<Integrations | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api.get<Integrations>("/api/integrations").then(setData).catch(() => {});
+    api
+      .get<Integrations>("/api/integrations")
+      .then((d) => {
+        setData(d);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        setLoadError(err instanceof Error ? err.message : "Failed to load settings");
+      });
   }, []);
   useEffect(load, [load]);
 
@@ -47,7 +62,20 @@ export default function Settings() {
     load();
   }
 
-  if (!data) return null;
+  if (!data) {
+    if (!loadError) return null;
+    return (
+      <div className="max-w-3xl">
+        <h1 className="mb-1 text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Couldn't load integration status: {loadError}{" "}
+          <button onClick={load} className="font-semibold underline">
+            Retry
+          </button>
+        </p>
+      </div>
+    );
+  }
 
   const card = "rounded-xl border border-slate-200 bg-white p-5";
   const code = "rounded bg-slate-100 px-1 py-0.5 font-mono text-xs";
@@ -138,7 +166,7 @@ export default function Settings() {
                   </li>
                   <li>
                     In Google Cloud console, add{" "}
-                    <code className={code}>http://localhost:8000/api/gmail/callback</code> to that
+                    <code className={code}>{gmailCallbackUrl}</code> to that
                     client's authorized redirect URIs and enable the Gmail API.
                   </li>
                   <li>Restart the backend — a Connect button will appear here.</li>

@@ -97,21 +97,28 @@ backup before risky changes.
 
 ## Deploy
 
-The two halves deploy to different places because the backend is a long-running process
-(background mail poller + SQLite file) that cannot run on serverless:
+One Fly.io app serves everything: the [Dockerfile](Dockerfile) builds the frontend and
+copies it into the backend image, which uvicorn serves alongside the API. A single
+always-on machine is required — the background mail poller and the SQLite file on the
+`crm_data` volume don't allow serverless or horizontal scaling.
 
-**Backend → Fly.io** (always-on machine + volume). One-time setup is documented at the
-top of [backend/fly.toml](backend/fly.toml): `fly launch`, create the `crm_data` volume,
-set secrets (`JWT_SECRET`, `ADMIN_*`, `GOOGLE_OAUTH_*`, `CORS_ORIGINS`, `FRONTEND_URL`),
-then `fly deploy`. After deploying, add the production callback URL
-(`https://<app>.fly.dev/api/gmail/callback`) to the Google OAuth client's authorized
-redirect URIs alongside the localhost one.
+One-time setup with the root [fly.toml](fly.toml):
 
-**Frontend → Vercel** (static). The root [vercel.json](vercel.json) builds `frontend/`
-from this monorepo, so importing the repo into Vercel works as-is. Set one environment
-variable in the Vercel project: `VITE_API_URL=https://<app>.fly.dev` (it's baked in at
-build time; leave it unset locally and the dev proxy is used). The backend's
-`CORS_ORIGINS` and `FRONTEND_URL` secrets must name your Vercel domain.
+```bash
+fly launch --no-deploy          # creates the app from fly.toml
+fly volumes create crm_data --region iad --size 1
+fly secrets set JWT_SECRET=... ADMIN_EMAIL=... ADMIN_PASSWORD=... \
+  ANTHROPIC_API_KEY=... GOOGLE_OAUTH_CLIENT_ID=... GOOGLE_OAUTH_CLIENT_SECRET=... \
+  GOOGLE_OAUTH_REDIRECT_URL=https://<app>.fly.dev/api/gmail/callback \
+  FRONTEND_URL=https://<app>.fly.dev
+fly deploy
+```
+
+`APP_ENV=production` is set in fly.toml, so the app refuses to boot if `JWT_SECRET` or
+`ADMIN_PASSWORD` are missing or placeholders. After deploying, add the production
+callback URL (`https://<app>.fly.dev/api/gmail/callback`) to the Google OAuth client's
+authorized redirect URIs alongside the localhost one. Subsequent deploys are just
+`fly deploy` — startup applies any pending database migrations automatically.
 
 ## Design notes
 

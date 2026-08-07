@@ -68,3 +68,45 @@ def test_extract_logs_when_claude_fails(monkeypatch, caplog):
 
     assert ex.method == "fallback"
     assert any("extraction" in r.message.lower() for r in caplog.records)
+
+
+def test_claude_extract_parses_forced_tool_use(monkeypatch):
+    """The Claude path itself, with the SDK mocked at the client boundary."""
+    from types import SimpleNamespace
+
+    from app import extraction
+    from app.config import Settings
+
+    monkeypatch.setattr(extraction, "get_settings", lambda: Settings(anthropic_api_key="key"))
+
+    tool_block = SimpleNamespace(
+        type="tool_use",
+        input={
+            "name": "Jane Doe",
+            "email": "jane@doebodyshop.com",
+            "phone": "555-123-4567",
+            "company": "Doe Body Shop",
+            "intent": "Wants a demo for a 3-bay shop",
+            "estimated_value": 4800,
+        },
+    )
+    fake_response = SimpleNamespace(content=[SimpleNamespace(type="text"), tool_block])
+
+    class FakeClient:
+        def __init__(self, api_key):
+            assert api_key == "key"
+            self.messages = SimpleNamespace(create=self._create)
+
+        def _create(self, **kwargs):
+            assert kwargs["tool_choice"] == {"type": "tool", "name": "record_lead"}
+            return fake_response
+
+    import anthropic
+
+    monkeypatch.setattr(anthropic, "Anthropic", FakeClient)
+
+    ex = extraction.extract(parse_eml(SAMPLE_EML))
+    assert ex.method == "claude"
+    assert ex.name == "Jane Doe"
+    assert ex.company == "Doe Body Shop"
+    assert ex.estimated_value == 4800

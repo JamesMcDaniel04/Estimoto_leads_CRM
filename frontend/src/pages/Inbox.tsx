@@ -29,8 +29,14 @@ export default function Inbox() {
   const [imap, setImap] = useState<ImapStatus | null>(null);
 
   const loadStatus = useCallback(() => {
-    api.get<GmailStatus>("/api/gmail/status").then(setGmail).catch(() => {});
-    api.get<ImapStatus>("/api/emails/imap-status").then(setImap).catch(() => {});
+    api
+      .get<GmailStatus>("/api/gmail/status")
+      .then(setGmail)
+      .catch(() => toast.error("Failed to load Gmail status"));
+    api
+      .get<ImapStatus>("/api/emails/imap-status")
+      .then(setImap)
+      .catch(() => toast.error("Failed to load IMAP status"));
   }, []);
   useEffect(loadStatus, [loadStatus]);
 

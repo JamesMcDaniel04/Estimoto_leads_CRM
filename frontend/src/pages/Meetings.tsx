@@ -33,6 +33,10 @@ export default function Meetings() {
     const resp = await fetch(`${API_BASE}/api/meetings/${meeting.id}/ics`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     });
+    if (!resp.ok) {
+      toast.error(`Calendar download failed (${resp.status})`);
+      return;
+    }
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

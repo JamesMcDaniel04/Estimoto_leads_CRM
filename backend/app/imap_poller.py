@@ -135,13 +135,3 @@ async def poll_once(accounts: list[ImapAccount] | None = None) -> None:
     state["last_poll"] = datetime.now(timezone.utc).isoformat()
 
 
-async def poll_forever() -> None:
-    interval = get_settings().imap_poll_seconds
-    while True:
-        try:
-            await poll_once()
-        except Exception:
-            # poll_once catches per-account errors; this is a last-resort
-            # guard so the loop itself can never die.
-            log.exception("Unexpected poller error")
-        await asyncio.sleep(interval)

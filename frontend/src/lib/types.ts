@@ -49,6 +49,7 @@ export interface EmailMessage {
   raw_body: string;
   extraction_json: string;
   extraction_method: string;
+  mailbox: string;
 }
 
 export interface Meeting {
