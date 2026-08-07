@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +36,8 @@ async def suggest_next(lead_id: int, db: AsyncSession = Depends(get_db)):
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found")
     try:
-        return {"suggestion": suggest_next_action(lead)}
+        # Synchronous SDK call — keep it off the event loop.
+        return {"suggestion": await asyncio.to_thread(suggest_next_action, lead)}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI request failed: {e}")
 

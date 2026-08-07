@@ -5,6 +5,8 @@ Used by both the manual ingest endpoints and the IMAP poller, so behavior
 email arrived.
 """
 
+import asyncio
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +28,9 @@ async def ingest_parsed(
             lead = await db.get(Lead, existing.lead_id)
             return IngestResponse(lead=lead, lead_created=False, extraction_method="duplicate")
 
-    ex = extract(parsed)
+    # The Claude path uses the synchronous SDK — run it in a worker thread so
+    # a slow API call never stalls the event loop (poller + all requests).
+    ex = await asyncio.to_thread(extract, parsed)
 
     lead = None
     match_email = ex.email or parsed.sender_email
